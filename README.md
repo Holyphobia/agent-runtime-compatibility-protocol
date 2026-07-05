@@ -75,6 +75,14 @@ The resolver checks:
    supported by beta
 5. **Event types** — required event types are emitted by harness
 
+### Matched fields
+
+`matched.tools`, `matched.capabilities`, and `matched.contracts` are the
+**agent-required items** that were successfully satisfied by both Harness
+and Beta. They are **not** a full inventory of everything Harness provides
+or Beta supports. A capability present in both Harness and Beta will not
+appear in `matched.capabilities` unless the agent also requires it.
+
 ### Decision outcomes
 
 | `compatible` | `decision`            | Meaning                                       |

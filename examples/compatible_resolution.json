@@ -8,8 +8,13 @@
     "agent": "0.1.0"
   },
   "matched": {
-    "tools": ["harness.llm.complete"],
-    "capabilities": ["LLM_COMPLETION", "BETA_READABLE_EVENTS", "MANIFEST_PATH_RUN"],
+    "tools": [
+      "harness.llm.complete"
+    ],
+    "capabilities": [
+      "BETA_READABLE_EVENTS",
+      "LLM_COMPLETION"
+    ],
     "contracts": {
       "agent_manifest": "0.1",
       "run_request_envelope": "0.1",

@@ -89,7 +89,7 @@ Schema files live in `schemas/`:
 | `compatible`        | bool    | True if no blockers                            |
 | `decision`          | string  | `"allowed"` or `"blocked"`                     |
 | `resolved_versions` | dict    | The actual versions of harness, beta, agent    |
-| `matched`           | dict    | Intersection of tools, capabilities, contracts |
+| `matched`           | dict    | Intersection of (agent requires) ∩ (harness provides) ∩ (beta supports) for tools, capabilities, and contracts. Items only appear if all three parties agree on them. |
 | `warnings`          | list    | Non-blocking compatibility notes               |
 | `blockers`          | list    | Blocking incompatibilities                     |
 | `suggested_actions` | list    | (Only on blocked) Human-readable suggestions   |
