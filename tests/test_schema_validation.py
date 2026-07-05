@@ -109,6 +109,7 @@ class TestValidateResolution:
 
 class TestCheckSecrets:
     def test_no_secrets(self, harness_doc):
+        """secret_policy and other allowed terms must NOT be flagged."""
         assert check_secrets(harness_doc) == []
 
     def test_no_secrets_beta(self, beta_doc):
@@ -117,28 +118,72 @@ class TestCheckSecrets:
     def test_no_secrets_agent(self, agent_doc):
         assert check_secrets(agent_doc) == []
 
+    # ── false-positive protection ──────────────────────────────────────
+
+    def test_secret_policy_not_flagged(self):
+        """secret_policy is a legitimate ARCP field — must not be flagged."""
+        doc = {"kind": "harness", "constraints": {"secret_policy": "secret_ref_only"}}
+        findings = check_secrets(doc)
+        assert findings == []
+
+    def test_secret_ref_not_flagged(self):
+        doc = {"kind": "harness", "secret_ref": "some_value"}
+        findings = check_secrets(doc)
+        assert findings == []
+
+    # ── true positives — compound secret-like keys ─────────────────────
+
     def test_detects_api_key(self):
-        doc = {"kind": "harness", "api_key": "sk-1234"}
+        doc = {"kind": "harness", "provider_api_key": "sk-1234"}
         findings = check_secrets(doc)
         assert len(findings) >= 1
-        assert findings[0]["pattern"] in ("api_key", "apikey")
+        assert "provider_api_key" in findings[0]["field"]
 
-    def test_detects_secret(self):
-        doc = {"kind": "harness", "credentials": {"secret": "s3cr3t"}}
+    def test_detects_my_secret_key(self):
+        doc = {"kind": "harness", "my_secret_key": "s3cr3t"}
         findings = check_secrets(doc)
         assert len(findings) >= 1
+        assert "my_secret_key" in findings[0]["field"]
 
-    def test_detects_token(self):
-        doc = {"kind": "beta", "auth": {"bearer": "tok_xxx"}}
-        findings = check_secrets(doc)
-        assert len(findings) >= 1
-
-    def test_detects_password(self):
-        doc = {"kind": "agent", "database": {"password": "hunter2"}}
+    def test_detects_access_token_camelcase(self):
+        """accessToken (camelCase) must be caught by access_?token pattern."""
+        doc = {"kind": "harness", "accessToken": "tok_xxx"}
         findings = check_secrets(doc)
         assert len(findings) >= 1
 
     def test_detects_authorization(self):
-        doc = {"kind": "harness", "headers": {"authorization": "Basic xxx"}}
+        doc = {"kind": "harness", "authorization_header": "Bearer xxx"}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+        assert "authorization_header" in findings[0]["field"]
+
+    def test_detects_password_nested(self):
+        doc = {"kind": "agent", "database": {"connection": {"password": "hunter2"}}}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+        assert any("password" in f["field"] for f in findings)
+
+    def test_detects_client_secret(self):
+        doc = {"kind": "harness", "auth": {"client_secret": "s3cr3t"}}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+
+    def test_detects_bearer_token(self):
+        doc = {"kind": "beta", "bearer_token": "tok_xxx"}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+
+    def test_detects_credential(self):
+        doc = {"kind": "harness", "credential": "some_cred"}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+
+    def test_detects_standalone_secret_key(self):
+        doc = {"kind": "harness", "secret": "s3cr3t"}
+        findings = check_secrets(doc)
+        assert len(findings) >= 1
+
+    def test_detects_standalone_token_key(self):
+        doc = {"kind": "harness", "token": "tok_xxx"}
         findings = check_secrets(doc)
         assert len(findings) >= 1

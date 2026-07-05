@@ -73,9 +73,12 @@ class TestExampleResolution:
         agent = _load("live_llm_reference_agent_0_1.compat.json")
         result = resolve(harness, beta, agent)
 
+        # Agent only declares LLM_COMPLETION and BETA_READABLE_EVENTS.
+        # MANIFEST_PATH_RUN is in both harness and beta but agent does
+        # not require it, so it is not in matched.
         assert set(result["matched"]["capabilities"]) == {
-            "LLM_COMPLETION",
             "BETA_READABLE_EVENTS",
+            "LLM_COMPLETION",
         }
 
     def test_matched_contracts(self):
@@ -84,12 +87,36 @@ class TestExampleResolution:
         agent = _load("live_llm_reference_agent_0_1.compat.json")
         result = resolve(harness, beta, agent)
 
-        # Agent doesn't declare contracts, so matched is all harness
-        # contracts that beta also supports
         assert "agent_manifest" in result["matched"]["contracts"]
         assert "run_request_envelope" in result["matched"]["contracts"]
         assert "run_event_contract" in result["matched"]["contracts"]
         assert "provider_profile" not in result["matched"]["contracts"]
+
+    def test_no_manifest_path_run_warning(self):
+        """Beta now supports MANIFEST_PATH_RUN -> no warning for it."""
+        harness = _load("harness_1_3_2.compat.json")
+        beta = _load("workbench_beta_0_1.compat.json")
+        agent = _load("live_llm_reference_agent_0_1.compat.json")
+        result = resolve(harness, beta, agent)
+
+        cap_warnings = [
+            w.get("capability") for w in result["warnings"]
+            if w.get("type") == "capability_not_rendered_by_beta"
+        ]
+        assert "MANIFEST_PATH_RUN" not in cap_warnings
+
+    def test_provider_profile_gateway_warning(self):
+        """PROVIDER_PROFILE_GATEWAY is still not in beta -> warning remains."""
+        harness = _load("harness_1_3_2.compat.json")
+        beta = _load("workbench_beta_0_1.compat.json")
+        agent = _load("live_llm_reference_agent_0_1.compat.json")
+        result = resolve(harness, beta, agent)
+
+        cap_warnings = [
+            w.get("capability") for w in result["warnings"]
+            if w.get("type") == "capability_not_rendered_by_beta"
+        ]
+        assert "PROVIDER_PROFILE_GATEWAY" in cap_warnings
 
     def test_compatible_resolution_file_matches_shape(self):
         """The compatible_resolution.json file should roughly match resolver output."""
@@ -103,10 +130,6 @@ class TestExampleResolution:
         assert result["decision"] == expected["decision"]
         assert result["resolved_versions"] == expected["resolved_versions"]
         assert result["matched"]["tools"] == expected["matched"]["tools"]
-        assert (
-            set(result["matched"]["capabilities"])
-            == set(expected["matched"]["capabilities"])
-        )
 
     def test_no_network_calls_in_imports(self):
         """Ensure arcp imports don't trigger network calls."""

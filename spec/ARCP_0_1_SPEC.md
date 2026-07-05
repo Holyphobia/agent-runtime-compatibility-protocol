@@ -94,6 +94,21 @@ Schema files live in `schemas/`:
 | `blockers`          | list    | Blocking incompatibilities                     |
 | `suggested_actions` | list    | (Only on blocked) Human-readable suggestions   |
 
+### Decision model
+
+| `compatible` | `decision`            | Meaning                                       |
+|--------------|-----------------------|-----------------------------------------------|
+| `true`       | `allowed`             | Agent can run. No blockers found.             |
+| `true`       | `allowed` (warnings)  | Agent can run. Warnings MAY be non-empty;     |
+|              |                       | they document non-fatal concerns but do NOT   |
+|              |                       | prevent execution.                            |
+| `false`      | `blocked`             | Agent cannot run. At least one blocker        |
+|              |                       | exists and must be resolved.                  |
+
+**Key principle:** `decision: allowed` does not guarantee an empty
+`warnings` list. Warnings are informational and MUST NOT be treated as
+blockers.
+
 ## 6. Resolver rules
 
 ### Blocker rules (any failure → `blocked`)

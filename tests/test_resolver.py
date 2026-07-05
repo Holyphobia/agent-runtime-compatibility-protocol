@@ -51,7 +51,7 @@ class TestSuccessfulResolution:
         assert "agent_manifest" in result["matched"]["contracts"]
         assert "run_request_envelope" in result["matched"]["contracts"]
         assert "run_event_contract" in result["matched"]["contracts"]
-        # provider_profile is in harness but not beta → should not be matched
+        # provider_profile is in harness but not beta -> should not be matched
         assert "provider_profile" not in result["matched"]["contracts"]
 
     def test_resolved_versions(self, harness, beta, agent):
@@ -121,11 +121,11 @@ class TestMissingCapabilityBlocker:
         assert any(b["capability"] == "NONEXISTENT_CAP" for b in blockers)
 
     def test_capability_not_in_beta(self, harness, beta, agent):
-        agent["capabilities"] = ["LLM_COMPLETION", "MANIFEST_PATH_RUN"]
+        agent["capabilities"] = ["LLM_COMPLETION", "PROVIDER_PROFILE_GATEWAY"]
         result = resolve(harness, beta, agent)
         assert result["compatible"] is False
         blockers = [b for b in result["blockers"] if b["type"] == "missing_capability"]
-        assert any(b["capability"] == "MANIFEST_PATH_RUN" for b in blockers)
+        assert any(b["capability"] == "PROVIDER_PROFILE_GATEWAY" for b in blockers)
 
 
 class TestContractBlocker:
@@ -164,18 +164,27 @@ class TestEventTypeBlocker:
 
 class TestWarnings:
     def test_capability_not_rendered_by_beta(self, harness, beta, agent):
-        """Harness has capabilities beta doesn't support → warning"""
+        """PROVIDER_PROFILE_GATEWAY is in harness but not beta -> warning."""
         result = resolve(harness, beta, agent)
-        wtypes = [w.get("type") for w in result["warnings"]]
-        assert "capability_not_rendered_by_beta" in wtypes
+        caps_in_warnings = [
+            w.get("capability") for w in result["warnings"]
+            if w.get("type") == "capability_not_rendered_by_beta"
+        ]
+        assert "PROVIDER_PROFILE_GATEWAY" in caps_in_warnings
+
+    def test_manifest_path_run_not_warning(self, harness, beta, agent):
+        """MANIFEST_PATH_RUN is in both harness and beta -> no warning."""
+        result = resolve(harness, beta, agent)
+        caps_in_warnings = [
+            w.get("capability") for w in result["warnings"]
+            if w.get("type") == "capability_not_rendered_by_beta"
+        ]
+        assert "MANIFEST_PATH_RUN" not in caps_in_warnings
 
     def test_provider_selection_off(self, harness, beta, agent):
         agent["capabilities"] = ["LLM_COMPLETION", "PROVIDER_PROFILE_GATEWAY"]
         beta["constraints"] = {"provider_selection": False}
         result = resolve(harness, beta, agent)
-        # PROVIDER_PROFILE_GATEWAY is in harness but agent requires it
-        # Change: make it so agent requires it and harness provides it
-        # Actually let's just check the warning
         wtypes = [w.get("type") for w in result["warnings"]]
         assert "provider_selection_disabled" in wtypes
 
@@ -213,5 +222,4 @@ class TestBlockerStructure:
     def test_no_network_calls(self):
         """Ensure resolver does not make network calls (it shouldn't import anything network-related)."""
         from arcp.resolver import resolve as _resolve  # noqa: F401
-        # If this import doesn't trigger network, we're good
         assert True

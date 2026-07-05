@@ -9,7 +9,7 @@
   },
   "matched": {
     "tools": ["harness.llm.complete"],
-    "capabilities": ["LLM_COMPLETION", "BETA_READABLE_EVENTS"],
+    "capabilities": ["LLM_COMPLETION", "BETA_READABLE_EVENTS", "MANIFEST_PATH_RUN"],
     "contracts": {
       "agent_manifest": "0.1",
       "run_request_envelope": "0.1",
@@ -17,11 +17,6 @@
     }
   },
   "warnings": [
-    {
-      "type": "capability_not_rendered_by_beta",
-      "capability": "MANIFEST_PATH_RUN",
-      "detail": "Harness provides 'MANIFEST_PATH_RUN' but Beta does not support it"
-    },
     {
       "type": "capability_not_rendered_by_beta",
       "capability": "PROVIDER_PROFILE_GATEWAY",

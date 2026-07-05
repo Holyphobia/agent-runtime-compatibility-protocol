@@ -75,9 +75,49 @@ The resolver checks:
    supported by beta
 5. **Event types** — required event types are emitted by harness
 
-If any check fails, the resolution is `blocked` with a structured list of
-`blockers`. Non-fatal mismatches produce `warnings`. The output is always
-deterministic, JSON-serialisable, and consumable by tooling.
+### Decision outcomes
+
+| `compatible` | `decision`            | Meaning                                       |
+|--------------|-----------------------|-----------------------------------------------|
+| `true`       | `allowed`             | Agent can run. No blockers found.             |
+| `true`       | `allowed` (warnings)  | Agent can run, but non-fatal concerns exist.  |
+|              |                       | Warnings do not prevent execution.            |
+| `false`      | `blocked`             | Agent cannot run. At least one blocker found. |
+
+**Key principle:** blockers prevent execution; warnings do not.
+A resolution with `decision: allowed` may have a non-empty `warnings` list.
+
+## Python API
+
+```python
+import arcp
+
+# Load documents
+harness = arcp.load_json_file("harness.compat.json")
+beta    = arcp.load_json_file("beta.compat.json")
+agent   = arcp.load_json_file("agent.compat.json")
+
+# Validate
+assert arcp.validate_compatibility_document(harness) == []
+
+# Resolve
+result = arcp.resolve(harness, beta, agent)
+print(result["decision"])     # "allowed" or "blocked"
+print(result["warnings"])     # non-blocking concerns
+print(result["blockers"])     # blocking incompatibilities
+```
+
+Public API surface: `resolve()`, `validate_compatibility_document()`,
+`validate_resolution_document()`, `check_secrets()`, `load_json_file()`,
+`ARCP_SCHEMA_VERSION`.
+
+## Secret detection
+
+ARCP's `validate` command and `check_secrets()` function scan compatibility
+document field names for secret-like patterns (``api_key``, ``secret_key``,
+``access_token``, ``password``, ``authorization``, etc.). Legitimate ARCP
+vocabulary terms such as ``secret_policy`` and ``secret_ref_only`` are
+explicitly allowed.
 
 ## Example commands
 
