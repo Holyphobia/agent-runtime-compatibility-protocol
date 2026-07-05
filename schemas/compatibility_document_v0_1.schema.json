@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ARCP Compatibility Document",
+  "description": "Schema for ARCP 0.1 compatibility documents (harness, beta, agent)",
+  "type": "object",
+  "required": ["arcp_schema_version", "kind", "id", "version", "name", "description"],
+  "properties": {
+    "arcp_schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["harness", "beta", "agent"]
+    },
+    "id": { "type": "string" },
+    "version": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "contracts": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": { "type": "string" } },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "tools": { "type": "array", "items": { "type": "string" } },
+    "capabilities": { "type": "array", "items": { "type": "string" } },
+    "event_types": { "type": "array", "items": { "type": "string" } },
+    "constraints": { "type": "object" },
+    "requires": { "type": "object" },
+    "supports": { "type": "object" },
+    "human_review_required": { "type": "boolean" },
+    "memory_write": { "type": "string" },
+    "external_network": { "type": "string" }
+  },
+  "additionalProperties": false
+}

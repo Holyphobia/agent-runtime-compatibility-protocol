@@ -1,0 +1,32 @@
+{
+  "arcp_schema_version": "0.1",
+  "kind": "agent",
+  "id": "live-llm-reference-agent",
+  "version": "0.1.0",
+  "name": "Live LLM Reference Agent",
+  "description": "Reference agent that requires LLM completion capabilities",
+  "requires": {
+    "harness": ">=1.3.2,<2.0.0",
+    "beta": ">=0.1.0,<0.2.0"
+  },
+  "tools": [
+    "harness.llm.complete"
+  ],
+  "capabilities": [
+    "LLM_COMPLETION",
+    "BETA_READABLE_EVENTS"
+  ],
+  "event_types": [
+    "run.requested",
+    "agent.manifest_loaded",
+    "compatibility.checked",
+    "run.started",
+    "llm.completion_requested",
+    "llm.completion_allowed",
+    "llm.completion_completed",
+    "run.completed"
+  ],
+  "human_review_required": true,
+  "memory_write": "none",
+  "external_network": "provider_only"
+}

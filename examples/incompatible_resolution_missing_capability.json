@@ -1,0 +1,29 @@
+{
+  "arcp_schema_version": "0.1",
+  "compatible": false,
+  "decision": "blocked",
+  "resolved_versions": {
+    "harness": "1.3.2",
+    "beta": "0.1.0",
+    "agent": "0.1.0"
+  },
+  "matched": {
+    "tools": ["harness.llm.complete"],
+    "capabilities": ["LLM_COMPLETION"],
+    "contracts": {}
+  },
+  "warnings": [],
+  "blockers": [
+    {
+      "type": "missing_capability",
+      "required_by": "agent",
+      "capability": "READ_EXTERNAL",
+      "provided_by_harness": false,
+      "supported_by_beta": false
+    }
+  ],
+  "suggested_actions": [
+    "Use a Harness version that provides READ_EXTERNAL.",
+    "Use a Beta version that can render READ_EXTERNAL-related run events."
+  ]
+}

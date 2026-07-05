@@ -1,0 +1,32 @@
+{
+  "arcp_schema_version": "0.1",
+  "compatible": true,
+  "decision": "allowed",
+  "resolved_versions": {
+    "harness": "1.3.2",
+    "beta": "0.1.0",
+    "agent": "0.1.0"
+  },
+  "matched": {
+    "tools": ["harness.llm.complete"],
+    "capabilities": ["LLM_COMPLETION", "BETA_READABLE_EVENTS"],
+    "contracts": {
+      "agent_manifest": "0.1",
+      "run_request_envelope": "0.1",
+      "run_event_contract": "0.1"
+    }
+  },
+  "warnings": [
+    {
+      "type": "capability_not_rendered_by_beta",
+      "capability": "MANIFEST_PATH_RUN",
+      "detail": "Harness provides 'MANIFEST_PATH_RUN' but Beta does not support it"
+    },
+    {
+      "type": "capability_not_rendered_by_beta",
+      "capability": "PROVIDER_PROFILE_GATEWAY",
+      "detail": "Harness provides 'PROVIDER_PROFILE_GATEWAY' but Beta does not support it"
+    }
+  ],
+  "blockers": []
+}

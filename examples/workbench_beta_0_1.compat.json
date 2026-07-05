@@ -1,0 +1,39 @@
+{
+  "arcp_schema_version": "0.1",
+  "kind": "beta",
+  "id": "workbench-beta",
+  "version": "0.1.0",
+  "name": "Workbench Beta",
+  "description": "Workbench Beta compatibility document for ARCP 0.1",
+  "supports": {
+    "harness": ">=1.3.2,<1.4.0"
+  },
+  "contracts": [
+    "agent_manifest",
+    "run_request_envelope",
+    "run_event_contract"
+  ],
+  "tools": [
+    "harness.llm.complete"
+  ],
+  "capabilities": [
+    "LLM_COMPLETION",
+    "BETA_READABLE_EVENTS"
+  ],
+  "event_types": [
+    "run.requested",
+    "agent.manifest_loaded",
+    "compatibility.checked",
+    "policy.checked",
+    "run.started",
+    "llm.completion_requested",
+    "llm.completion_allowed",
+    "llm.completion_completed",
+    "run.completed",
+    "run.failed",
+    "run.blocked"
+  ],
+  "constraints": {
+    "provider_selection": true
+  }
+}
