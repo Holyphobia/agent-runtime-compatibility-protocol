@@ -28,13 +28,15 @@ from typing import Any
 from arcp.resolver import resolve, resolve_environment
 from arcp.validation import (
     check_secrets,
+    is_transitional_format,
+    normalize_transitional_document,
     upgrade_v0_1_to_v0_2,
     validate_document as validate_compatibility_document,
     validate_resolution as validate_resolution_document,
 )
 from arcp.models import SCHEMA_VERSION as ARCP_SCHEMA_VERSION
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 def load_json_file(path: str) -> dict[str, Any]:
@@ -51,5 +53,7 @@ __all__ = [
     "check_secrets",
     "load_json_file",
     "upgrade_v0_1_to_v0_2",
+    "normalize_transitional_document",
+    "is_transitional_format",
     "ARCP_SCHEMA_VERSION",
 ]

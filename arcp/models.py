@@ -186,3 +186,27 @@ def is_v0_1_document(doc: dict[str, Any]) -> bool:
 
 def is_v0_2_document(doc: dict[str, Any]) -> bool:
     return doc.get("protocol_version") == "0.2" or doc.get("arcp_schema_version") == "0.2"
+
+
+def is_transitional_document(doc: dict[str, Any]) -> bool:
+    """Detect a transitional Harness v1.3.9 document.
+
+    The real Harness v1.3.9 export produces a document with v0.1 structure
+    (``kind``/``id``/``version``) but carrying ``arcp_schema_version: "0.2"``.
+
+    Recognition is narrowly scoped:
+    - ``arcp_schema_version`` is ``"0.2"``
+    - ``kind`` is present (no ``component_type``)
+    - Legacy identity fields present (no conflicting native v0.2 fields)
+    - Expected compatibility sections present (contracts, tools, capabilities)
+    """
+    if doc.get("arcp_schema_version") != "0.2":
+        return False
+    if "component_type" in doc:
+        return False  # Already native v0.2
+    if "kind" not in doc or "id" not in doc or "version" not in doc:
+        return False  # Not a legacy-shaped document
+    # Must have expected compatibility sections
+    if "contracts" not in doc and "tools" not in doc:
+        return False  # Lacks Harness-like structure
+    return True

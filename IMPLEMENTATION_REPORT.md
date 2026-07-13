@@ -1,4 +1,122 @@
-# ARCP v0.2.0 Implementation Report
+# ARCP v0.2.1 Implementation Report
+
+## Meta
+
+| Field             | Value                                    |
+|-------------------|------------------------------------------|
+| Package version   | `0.2.1`                                  |
+| Protocol version  | `0.2`                                    |
+| Status            | **READY**                                |
+
+## v0.2.1 Changes
+
+### 1. Transitional Harness v1.3.9 export support
+
+The real Harness v1.3.9 `compatibility export` command produces documents with
+v0.1 structure (`kind`/`id`/`version`) but declares `arcp_schema_version: "0.2"`.
+These documents previously failed validation because the v0.1 schema rejects
+`arcp_schema_version: "0.2"`, and the v0.2 schema requires `component_type`.
+
+**Fix**: Added `is_transitional_document()` detection and
+`normalize_transitional_document()` conversion in `arcp/models.py` and
+`arcp/validation.py`. The resolver calls `_normalize_transitional_env()` during
+initialization to convert any transitional documents to native v0.2 format
+before resolution proceeds.
+
+Transitional recognition is narrowly scoped:
+- `arcp_schema_version` is `"0.2"`
+- `kind` is present (no `component_type`)
+- Legacy identity fields present (`id`, `version`)
+- Expected compatibility sections present (`contracts` and/or `tools`)
+
+### 2. Mandatory Beta contract enforcement
+
+Previously, agent-declared contracts missing from Beta produced only warnings.
+This was inconsistent with the v0.2 spec, which requires both harness and Beta
+to support all agent-declared contracts.
+
+**Fix**: `_resolve_agent_contracts()` in `arcp/resolver.py` now produces
+blockers with `type: "missing_contract"` and `supported_by_beta: False` when
+Beta lacks contracts the agent requires. This results in `denied` decisions.
+
+Scenarios affected:
+- ICA 0.3.0 on Beta 0.1.3 → now `denied` (was `allowed_with_warnings`)
+- Beta lacks actionable review → now `denied` (was `allowed_with_warnings`)
+
+### 3. Missing optional capabilities → `allowed_with_warnings`
+
+Missing optional capabilities were correctly generating warnings but the
+final decision was `allowed` when no other warnings existed. The v0.2 spec
+requires missing optional capabilities to produce `allowed_with_warnings`.
+
+**Fix**: `_finalize()` condition widened to `elif warnings_list or
+result.get("missing_optional_capabilities"):` with a guard to populate
+missing optional cap warnings into the warnings list before the decision is
+made.
+
+### 4. Duplicate component identity detection
+
+The resolver previously tolerated duplicate component identities (e.g., two
+agents with the same `component_type:component_id`). This could mask
+configuration errors.
+
+**Fix**: Added `_check_duplicate_identities()` function called in Stage 1
+of the resolver. Uses identity key `component_type:component_id`. Duplicates
+across any component type produce a `duplicate_identity` blocker.
+
+## Scenario results (updated for v0.2.1)
+
+### B — Interactive agent on current Beta (ICA 0.3.0 on Beta 0.1.3)
+```
+Decision: denied
+Compatible: False
+Blockers: missing_contract (5 contracts: interactive_run_control, artifacts,
+          human_review, checkpoint_resume, cancellation)
+```
+Beta 0.1.3 lacks contracts that ICA 0.3.0 requires. Now correctly denied.
+
+### E — Missing optional crawler
+```
+Decision: allowed_with_warnings
+Compatible: True
+Blockers: none
+Warnings: 1 (optional web.crawl not available)
+```
+Previously `allowed`, now correctly `allowed_with_warnings`.
+
+### G — Beta renderer fallback
+```
+Decision: denied
+Compatible: False
+Blockers: missing_contract (Beta 0.1.3 lacks 5 required contracts)
+Warnings: renderer fallback notes (not reached due to contract denial)
+```
+Contract check fires before renderer check, producing correct denial.
+
+## Fixtures
+
+No new fixtures added. The transitional Harness export is tested using inline
+documents in the scenario matrix.
+
+## Tests
+
+| Metric | Value |
+|--------|-------|
+| Full suite | 175 passed |
+| Failed | 0 |
+| Scenarios | 30/30 passed |
+
+## Files changed for v0.2.1
+
+| File | Change |
+|------|--------|
+| `arcp/models.py` | Added `is_transitional_document()`, `is_transitional_document()` public predicate |
+| `arcp/validation.py` | Added `normalize_transitional_document()`, `is_transitional_format()`, updated `_detect_schema_version()` and `validate_document()` |
+| `arcp/resolver.py` | Added 4 fixes: transitional normalization, beta contract blockers, optional cap warnings, duplicate identity check |
+| `arcp/__init__.py` | Exported `normalize_transitional_document`, `is_transitional_format` |
+| `pyproject.toml` | Version 0.2.1 |
+| `tests/test_v0_2.py` | 3 tests updated for beta contract denial |
+| `CHANGELOG.md` | v0.2.1 entry added |
 
 ## Meta
 
@@ -298,7 +416,7 @@ Allowlisted terms (`secret_policy`, `secret_ref_only`, `provider`, etc.) are not
 - Missing required fields → error
 - Additional properties (v0.2 schema) → error
 - Duplicate conflicting capability declarations → handled (capabilities are sets, deduped)
-- Duplicate component identities → no explicit dedup check (tolerated, each appears in matched_components)
+- Duplicate component identities → duplicate_identity blocker (added in v0.2.1)
 - Invalid version ranges → `match_range` returns `False`
 - Invalid version strings → `parse_version` returns `()` → range fails
 
@@ -318,17 +436,13 @@ ARCP never reads or resolves actual credentials. The resolver is offline and det
 | Formatting/linting | Not configured in `pyproject.toml` |
 | Type checking | Not configured in `pyproject.toml` |
 
-### Real Harness v1.3.9 export validation
+### Real Harness v1.3.9 export validation (v0.2.1 update)
 
-The real Harness v1.3.9 compatibility export (`harness compatibility export --format json`) produces a document in transitional format:
-- Uses v0.1 structure (`kind`/`id`/`version` fields)
-- Declares `arcp_schema_version: "0.2"`
-- Contains 7 tools, 42 capabilities, 112 event types, 5 contracts
-- Zero secrets detected
-- Auto-detected as v0.1 by ARCP (due to `kind` field)
-- Produces a schema validation mismatch because v0.1 schema expects `arcp_schema_version: "0.1"`
-
-**Recommendation**: The Harness compatibility export should be updated to produce proper v0.2 format (`component_type`, `component_id`, `component_version`, `protocol_version`). The fixture `fixtures/harness_1_3_9.compat.json` is the authoritative v0.2-format document.
+The real Harness v1.3.9 compatibility export (`harness compatibility export --format json`) produces a document in **transitional format** (v0.1 structure with `arcp_schema_version: "0.2"`). As of v0.2.1, ARCP auto-detects and normalizes these documents:
+- `is_transitional_document()` detects the v0.1 structure + v0.2 label
+- `normalize_transitional_document()` converts to native v0.2 format
+- The normalized document passes validation and resolves correctly
+- Updating the Harness export to produce native v0.2 is still recommended but no longer required
 
 ## Files changed
 
@@ -360,39 +474,35 @@ The real Harness v1.3.9 compatibility export (`harness compatibility export --fo
 | Change log | `CHANGELOG.md` | ✓ |
 | Implementation report | `IMPLEMENTATION_REPORT.md` | ✓ |
 | README | `README.md` | ✓ |
-| pyproject.toml | `pyproject.toml` | ✓ (version 0.2.0) |
+| pyproject.toml | `pyproject.toml` | ✓ (v0.2.0; updated to 0.2.1 in hotfix) |
 
 All documentation agrees on: protocol version 0.2, 6 component types, 4 decision names, canonical capability names, CLI syntax, v0.1 migration behavior, and out-of-scope declarations.
 
-## Known limitations
+## Known limitations (v0.2.1)
 
-1. **Real Harness export format mismatch**: The Harness v1.3.9 `compatibility export` command produces a transitional format (v0.1 structure with v0.2 schema version). Updating the Harness export to produce proper v0.2 documents is tracked as a separate task.
-2. **No `--version` CLI flag**: The CLI does not implement a `--version` flag; version is checked via `import arcp; arcp.__version__`.
-3. **Deterministic only**: ARCP does not check live provider availability, network connectivity, or credential validity.
+1. **No `--version` CLI flag**: The CLI does not implement a `--version` flag; version is checked via `import arcp; arcp.__version__`.
+2. **Deterministic only**: ARCP does not check live provider availability, network connectivity, or credential validity.
+3. **Transitional Harness export now supported**: The Harness compatibility export transitional format is auto-detected and normalized. Updating the Harness export to produce native v0.2 is still recommended but no longer required.
 
-## Recommended next step
+## Recommended next step (v0.2.1)
 
-Update the Harness compatibility export (`build_harness_compatibility_document` in `agent_harness/compatibility/arcp_export.py`) to produce v0.2-format documents with `component_type`, `component_id`, `component_version`, and `protocol_version` fields.
+Optionally update the Harness compatibility export (`build_harness_compatibility_document`) to produce native v0.2-format documents. The transitional format is supported but native v0.2 is cleaner.
 
 ## Tag recommendation
 
-**v0.2.0** — after merge to `main`.
+**v0.2.1** — hotfix release.
 
-## Final acceptance
+## Final acceptance (v0.2.1)
 
 | Criterion | Status |
 |-----------|--------|
-| All required scenarios produce expected decisions | ✓ |
-| v0.1 documents remain supported | ✓ |
-| Real Harness v1.3.9 export validates (transitional format noted) | ✓ |
-| Mandatory unknown capabilities produce `indeterminate` | ✓ |
-| Required vs optional capabilities distinguished | ✓ |
-| Secret-like fields rejected | ✓ |
+| Transitional Harness v1.3.9 export validates and resolves | ✓ |
+| Missing Beta contracts produce denial (not warnings) | ✓ |
+| Missing optional capabilities produce `allowed_with_warnings` | ✓ |
+| Duplicate component identities produce blocker | ✓ |
 | All 175 tests pass | ✓ |
-| CLI JSON paths work | ✓ |
-| Documentation matches implementation | ✓ |
-| Implementation committed | ✓ |
-| Working tree clean | ✓ |
+| All 30 scenario matrix checks pass | ✓ |
+| v0.1 documents remain supported | ✓ |
 | No merge or tag performed | ✓ |
 
 **Overall status: READY**

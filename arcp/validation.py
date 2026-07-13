@@ -10,7 +10,7 @@ from typing import Any
 from jsonschema import validate as jsonschema_validate
 from jsonschema.exceptions import ValidationError
 
-from arcp.models import ALLOWED_SECRET_KEYS, SECRET_PATTERNS, is_v0_1_document
+from arcp.models import ALLOWED_SECRET_KEYS, SECRET_PATTERNS, is_transitional_document, is_v0_1_document
 
 _SCHEMAS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "schemas")
 
@@ -34,18 +34,81 @@ def load_resolution_schema(version: str = "0.2") -> dict[str, Any]:
 
 
 def _detect_schema_version(doc: dict[str, Any]) -> str:
-    """Detect whether a document is v0.1 or v0.2."""
+    """Detect whether a document is v0.1 or v0.2.
+
+    Transitional documents (v0.1 structure with v0.2 label) are
+    reported as v0.2 for normalization purposes.
+    """
+    if is_transitional_document(doc):
+        return "0.2"
     if is_v0_1_document(doc):
         return "0.1"
     return "0.2"
+
+
+def is_transitional_format(doc: dict[str, Any]) -> bool:
+    """Public predicate: is *doc* a transitional Harness v1.3.9 export?"""
+    return is_transitional_document(doc)
+
+
+def normalize_transitional_document(doc: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a transitional Harness v1.3.9 export to native v0.2 format.
+
+    The real Harness compatibility export produces a document shaped like
+    v0.1 (``kind``/``id``/``version``) but carrying ``arcp_schema_version: "0.2"``.
+    This function converts it to native v0.2 format so it can be resolved
+    by the standard v0.2 resolver.
+    """
+    new: dict[str, Any] = {
+        "arcp_schema_version": "0.2",
+        "component_type": doc.get("kind", "harness"),
+        "component_id": doc.get("id", ""),
+        "component_version": doc.get("version", ""),
+        "protocol_version": "0.2",
+        "name": doc.get("name", ""),
+        "description": doc.get("description", ""),
+    }
+
+    contracts = doc.get("contracts", {})
+    if isinstance(contracts, list):
+        new["contracts"] = {c: "0" for c in contracts}
+    elif isinstance(contracts, dict):
+        new["contracts"] = contracts
+
+    tools = doc.get("tools", [])
+    if tools:
+        new["tools"] = tools
+
+    caps = doc.get("capabilities", [])
+    if caps:
+        new["capabilities"] = {"provides": caps}
+
+    events = doc.get("event_types", [])
+    if events:
+        new["events"] = {"supported_types": events}
+
+    for key in ("requires", "supports", "constraints"):
+        val = doc.get(key, {})
+        if val:
+            new[key] = val
+
+    return new
 
 
 def validate_document(doc: dict[str, Any]) -> list[str]:
     """Validate a compatibility document against the appropriate JSON Schema.
 
     Auto-detects v0.1 vs v0.2 based on document fields.
+    Transitional Harness v1.3.9 exports are normalized to v0.2 before
+    validation.
+
     Returns a list of error messages (empty = valid).
     """
+    # Normalize transitional documents before validation
+    if is_transitional_document(doc):
+        normalized = normalize_transitional_document(doc)
+        return validate_document(normalized)
+
     version = _detect_schema_version(doc)
     try:
         schema = load_compatibility_schema(version)
