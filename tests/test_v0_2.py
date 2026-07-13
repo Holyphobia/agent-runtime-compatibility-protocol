@@ -329,8 +329,9 @@ class TestMultiComponentResolution:
         beta = _fix("beta_0_1_3.compat.json")
         agent = _fix("ica_0_3_0.compat.json")
         result = resolve(harness, beta, agent)
-        # May have warnings due to beta lacking full interactive support
-        assert result["compatible"] is True or result["decision"] == DECISION_ALLOWED_WITH_WARNINGS
+        # Beta 0.1.3 lacks contracts ICA 0.3.0 requires → denied
+        assert result["compatible"] is False
+        assert result["decision"] == DECISION_DENIED
 
     def test_future_stack_allowed(self):
         """Harness 1.3.9 + future Beta 0.2.0 + future ICA 0.3.0."""
@@ -720,21 +721,25 @@ class TestHarnessExportValidation:
 
 class TestBetaSupportResolution:
     def test_beta_lacks_actionable_review(self):
-        """Beta doesn't support full review actions → warning or compatible."""
+        """Beta doesn't support full review actions → denied (missing contracts)."""
         harness = _fix("harness_1_3_9.compat.json")
         beta = _fix("beta_no_actionable_review.compat.json")
         agent = _fix("ica_0_3_0.compat.json")
         result = resolve(harness, beta, agent)
-        # Should still be compatible (review is agent-need but beta can show basic)
-        assert result["compatible"] is True
+        # Beta v0.1.0 lacks contracts ICA 0.3.0 requires → denied
+        assert result["compatible"] is False
+        assert result["decision"] == DECISION_DENIED
 
     def test_beta_renderer_fallback(self):
-        """Beta has generic fallback for missing renderer → warning, not blocker."""
+        """Beta has generic fallback for missing renderer but lacks required contracts."""
         harness = _fix("harness_1_3_9.compat.json")
         beta = _fix("beta_0_1_3.compat.json")  # Has: markdown, json
         agent = _fix("ica_0_3_0.compat.json")  # Wants: evidence_table, source_cards
         result = resolve(harness, beta, agent)
-        assert result["compatible"] is True
+        # Contract check fires before renderer check; Beta 0.1.3 is missing
+        # contracts ICA 0.3.0 requires → denied
+        assert result["compatible"] is False
+        assert result["decision"] == DECISION_DENIED
 
     def test_beta_supports_future_features(self):
         """Beta 0.2.0 should satisfy all ICA 0.3.0 requirements."""

@@ -21,10 +21,12 @@ from arcp.models import (
     get_component_type,
     get_component_version,
     get_protocol_version,
+    is_transitional_document,
     is_v0_1_document,
     normalize_capability,
 )
 from arcp.semver import is_broad_range, match_range
+from arcp.validation import normalize_transitional_document
 
 # ── Public API ──────────────────────────────────────────────────────────
 
@@ -59,6 +61,9 @@ def resolve(
             "beta": beta,
             "agent": agent,
         })
+
+    # Normalize transitional documents (e.g. Harness v1.3.9 export)
+    _normalize_transitional_env(env)
 
     # Detect v0.1 → use legacy resolver (only if actual v0.1 docs exist)
     all_docs = _collect_docs(env)
@@ -139,6 +144,9 @@ def _v0_2_resolve(env: _Environment) -> dict[str, Any]:
     if blockers:
         _finalize(result, blockers, warnings_list, reasons, remediation_list)
         return result
+
+    # ── Duplicate identity check ────────────────────────────────
+    _check_duplicate_identities(env, blockers, remediation_list)
 
     for a in agents:
         _check_contract_field_types(a, blockers, remediation_list)
@@ -515,6 +523,29 @@ def _normalize_environment(env: dict[str, Any]) -> _Environment:
     return result
 
 
+def _normalize_transitional_env(env: _Environment) -> None:
+    """Normalize any transitional Harness v1.3.9 documents in *env*.
+
+    Mutates the environment in place, replacing transitional documents
+    with their native v0.2 normalised form.
+    """
+    if env.harness is not None and is_transitional_document(env.harness):
+        env.harness = normalize_transitional_document(env.harness)
+    if env.beta is not None and is_transitional_document(env.beta):
+        env.beta = normalize_transitional_document(env.beta)
+    for i, a in enumerate(env.agents):
+        if is_transitional_document(a):
+            env.agents[i] = normalize_transitional_document(a)
+    for i, t in enumerate(env.tools):
+        if is_transitional_document(t):
+            env.tools[i] = normalize_transitional_document(t)
+    for i, tp in enumerate(env.tool_packs):
+        if is_transitional_document(tp):
+            env.tool_packs[i] = normalize_transitional_document(tp)
+    if env.provider is not None and is_transitional_document(env.provider):
+        env.provider = normalize_transitional_document(env.provider)
+
+
 def _collect_docs(env: _Environment) -> list[dict[str, Any] | None]:
     docs: list[dict[str, Any] | None] = [env.harness, env.beta]
     docs.extend(env.agents)
@@ -661,9 +692,17 @@ def _resolve_agent_contracts(
                 )
 
         if beta and cname not in beta_contracts:
-            warnings_list.append(
-                f"Beta does not declare support for contract '{cname}'. "
-                f"Generic fallback may apply."
+            blockers.append({
+                "type": "missing_contract",
+                "contract": cname,
+                "supported_by_beta": False,
+                "detail": f"Agent requires contract '{cname}' but Beta does not declare it.",
+            })
+            reasons.append(
+                f"Beta does not declare support for contract '{cname}'."
+            )
+            remediation.append(
+                f"Use a Beta version that supports contract '{cname}'."
             )
 
 
@@ -893,6 +932,53 @@ def _set_version(
         result["resolved_versions"][key] = ver
 
 
+# ── Identity helpers ───────────────────────────────────────────────────
+
+
+def _check_duplicate_identities(
+    env: _Environment,
+    blockers: list[dict[str, Any]],
+    remediation: list[str],
+) -> None:
+    """Reject environments with duplicate component identities.
+
+    Identity key: ``component_type + component_id``.
+    Two harnesses with the same ID, two agents with the same ID, etc.
+    produce a blocker.
+    """
+    seen: dict[str, str] = {}  # identity_key -> component_type:component_id
+    entries: list[tuple[str, dict[str, Any]]] = []
+
+    if env.harness:
+        entries.append(("harness", env.harness))
+    if env.beta:
+        entries.append(("beta", env.beta))
+    for a in env.agents:
+        entries.append(("agent", a))
+    for t in env.tools:
+        entries.append(("tool", t))
+    for tp in env.tool_packs:
+        entries.append(("tool_pack", tp))
+    if env.provider:
+        entries.append(("provider", env.provider))
+
+    for ctype, doc in entries:
+        cid = get_component_id(doc)
+        key = f"{ctype}:{cid}"
+        if key in seen:
+            blockers.append({
+                "type": "duplicate_identity",
+                "component_type": ctype,
+                "component_id": cid,
+                "detail": f"Duplicate component identity '{key}'.",
+            })
+            remediation.append(
+                f"Duplicate component identity: {key}. "
+                f"Provide exactly one component document for each component identity."
+            )
+        seen[key] = ctype
+
+
 def _check_contract_field_types(
     agent: dict[str, Any],
     blockers: list[dict[str, Any]],
@@ -941,9 +1027,16 @@ def _finalize(
         else:
             result["decision"] = DECISION_DENIED
         _generate_remediation_from_blockers(blockers, remediation)
-    elif warnings_list:
+    elif warnings_list or result.get("missing_optional_capabilities"):
         result["compatible"] = True
         result["decision"] = DECISION_ALLOWED_WITH_WARNINGS
+        # Ensure warnings are populated if missing optional caps exist
+        missing_opt = result.get("missing_optional_capabilities", [])
+        for cap in missing_opt:
+            msg = f"Optional capability {cap} is not available."
+            if msg not in warnings_list:
+                warnings_list.append(msg)
+        result["warnings"] = warnings_list
     else:
         result["compatible"] = True
         result["decision"] = DECISION_ALLOWED
@@ -1011,6 +1104,12 @@ def _generate_remediation_from_blockers(
             cap = b.get("capability", "")
             remediation.append(
                 f"Select a provider that supports '{cap}'."
+            )
+        elif btype == "duplicate_identity":
+            key = b.get("component_type", "") + ":" + b.get("component_id", "")
+            remediation.append(
+                f"Duplicate component identity: {key}. "
+                f"Provide exactly one component document for each component identity."
             )
 
     # Deduplicate

@@ -1,6 +1,6 @@
 [project]
 name = "agent-runtime-compatibility-protocol"
-version = "0.2.0"
+version = "0.2.1"
 description = "Agent Runtime Compatibility Protocol — deterministic compatibility resolution for agent runtimes"
 license = "Apache-2.0"
 requires-python = ">=3.11"
