@@ -1,0 +1,15 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "tool",
+  "component_id": "web-fetch-only",
+  "component_version": "0.1.0",
+  "protocol_version": "0.2",
+  "name": "Web Fetch Only Tool",
+  "description": "Simple tool that only provides web fetch capability.",
+  "contracts": {},
+  "capabilities": {
+    "provides": ["web.fetch"]
+  },
+  "tools": ["web.fetch"],
+  "incompatibilities": []
+}

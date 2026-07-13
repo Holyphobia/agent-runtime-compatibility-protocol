@@ -1,34 +1,49 @@
 # ARCP — Agent Runtime Compatibility Protocol
 
-**Version 0.1**
+**Version 0.2**
 
-ARCP is a small open-source protocol and library that defines how agent runtimes
-(Harness, Workbench Beta, and agents) declare compatibility requirements, and how
-a deterministic resolver decides whether a specific combination is compatible.
+ARCP is an open-source protocol and library that defines how agent runtimes,
+workbenches, agents, tools, and LLM providers declare compatibility requirements,
+and how a deterministic resolver decides whether a specific multi-component
+combination is compatible.
 
 ## Why deterministic compatibility?
 
 - **No LLM in the loop** — compatibility is decided by a static resolver, not an
-  AI judge. This makes ARCP suitable for pre-flight checks, CI/CD gates, and
-  audit trails.
-- **Structured blockers** — when a combination is incompatible, ARCP produces a
-  list of typed, machine-readable blockers with suggested actions, not a vague
-  text explanation.
+  AI judge. Suitable for pre-flight checks, CI/CD gates, and audit trails.
+- **Multi-component resolution** — v0.2 resolves environments with harness, beta,
+  multiple agents, tool packs, and LLM providers in a single call.
+- **Structured decisions** — four decision types (allowed, allowed_with_warnings,
+  denied, indeterminate) with actionable remediation messages.
 - **JSON in, JSON out** — every document and resolution is a plain JSON file.
   No database, no server, no network calls.
+
+## What ARCP is not
+
+ARCP validates compatibility. It does not:
+- Invoke tools or call LLM providers
+- Run agents or store secrets
+- Replace Harness policy enforcement
+- Replace MCP (tool transport)
+
+## Document kinds (v0.2)
+
+| Type                | Description                                      |
+|---------------------|--------------------------------------------------|
+| `harness`           | Agent runtime (tools, capabilities, contracts)   |
+| `beta`              | Workbench/operator UI                            |
+| `agent`             | Installable skill with requirements              |
+| `tool`              | Single tool providing capabilities               |
+| `tool_pack`         | Group of tools providing capabilities            |
+| `llm_provider_profile` | LLM provider capabilities and constraints    |
 
 ## Install / dev setup
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Clone the repo
 cd arcp
-
-# Install dependencies (jsonschema)
 uv sync
-
-# Run the tests
 uv run pytest -v
 ```
 
@@ -37,63 +52,30 @@ uv run pytest -v
 ### Validate a compatibility document
 
 ```bash
-uv run arcp validate --input examples/harness_1_3_2.compat.json
+uv run arcp validate --input fixtures/harness_1_3_9.compat.json
 ```
 
-### Resolve compatibility
+### Resolve compatibility (component arguments)
 
 ```bash
 uv run arcp resolve \
-  --harness examples/harness_1_3_2.compat.json \
-  --beta examples/workbench_beta_0_1.compat.json \
-  --agent examples/live_llm_reference_agent_0_1.compat.json \
+  --harness fixtures/harness_1_3_9.compat.json \
+  --beta fixtures/beta_0_2_0.compat.json \
+  --agent fixtures/ica_0_3_0.compat.json \
   --format json
+```
+
+### Resolve compatibility (environment file)
+
+```bash
+uv run arcp resolve --environment fixtures/env_future_interactive_stack.json --format json
 ```
 
 ### Explain a resolution
 
 ```bash
-uv run arcp explain --resolution examples/compatible_resolution.json
+uv run arcp explain --resolution resolution.json
 ```
-
-## Document kinds
-
-| Kind      | Description                                      |
-|-----------|--------------------------------------------------|
-| `harness` | What the agent runtime provides (tools, caps)    |
-| `beta`    | What the workbench supports / renders            |
-| `agent`   | What the agent requires to run                   |
-
-## Resolver decision model
-
-The resolver checks:
-
-1. **Version ranges** — agent requires harness X, beta supports harness Y
-2. **Tools** — every tool the agent requires is provided by harness and beta
-3. **Capabilities** — every capability the agent requires is present in both
-4. **Contracts** — every contract the agent needs is provided by harness and
-   supported by beta
-5. **Event types** — required event types are emitted by harness
-
-### Matched fields
-
-`matched.tools`, `matched.capabilities`, and `matched.contracts` are the
-**agent-required items** that were successfully satisfied by both Harness
-and Beta. They are **not** a full inventory of everything Harness provides
-or Beta supports. A capability present in both Harness and Beta will not
-appear in `matched.capabilities` unless the agent also requires it.
-
-### Decision outcomes
-
-| `compatible` | `decision`            | Meaning                                       |
-|--------------|-----------------------|-----------------------------------------------|
-| `true`       | `allowed`             | Agent can run. No blockers found.             |
-| `true`       | `allowed` (warnings)  | Agent can run, but non-fatal concerns exist.  |
-|              |                       | Warnings do not prevent execution.            |
-| `false`      | `blocked`             | Agent cannot run. At least one blocker found. |
-
-**Key principle:** blockers prevent execution; warnings do not.
-A resolution with `decision: allowed` may have a non-empty `warnings` list.
 
 ## Python API
 
@@ -105,55 +87,86 @@ harness = arcp.load_json_file("harness.compat.json")
 beta    = arcp.load_json_file("beta.compat.json")
 agent   = arcp.load_json_file("agent.compat.json")
 
-# Validate
-assert arcp.validate_compatibility_document(harness) == []
-
-# Resolve
+# Resolve (3-party)
 result = arcp.resolve(harness, beta, agent)
-print(result["decision"])     # "allowed" or "blocked"
-print(result["warnings"])     # non-blocking concerns
-print(result["blockers"])     # blocking incompatibilities
+
+# Or resolve a full environment
+result = arcp.resolve_environment({
+    "harness": harness,
+    "beta": beta,
+    "agent": agent,
+    "tools": [...],
+    "provider": {...},
+})
+
+print(result["decision"])      # "allowed", "allowed_with_warnings", "denied", "indeterminate"
+print(result["remediation"])   # actionable suggestions
 ```
 
-Public API surface: `resolve()`, `validate_compatibility_document()`,
-`validate_resolution_document()`, `check_secrets()`, `load_json_file()`,
-`ARCP_SCHEMA_VERSION`.
+## Decision model
+
+| Compatible | Decision              | Meaning                                  |
+|------------|-----------------------|------------------------------------------|
+| True       | `allowed`             | All requirements satisfied               |
+| True       | `allowed_with_warnings` | Mandatory requirements met, optional gaps |
+| False      | `denied`              | Mandatory requirement fails              |
+| False      | `indeterminate`       | Mandatory fact cannot be established     |
+
+## Resolution structure (v0.2)
+
+```json
+{
+  "arcp_schema_version": "0.2",
+  "compatible": true,
+  "decision": "allowed_with_warnings",
+  "resolved_versions": { "harness": "1.3.9", "beta": "0.2.0", "agent": "0.3.0" },
+  "matched_components": ["harness:agent-harness:1.3.9", "agent:ica:0.3.0"],
+  "matched_contracts": { "agent_manifest": "1.1" },
+  "matched_capabilities": ["llm.completion", "web.fetch"],
+  "missing_required_capabilities": [],
+  "missing_optional_capabilities": ["web.search"],
+  "warnings": ["Optional capability web.search is not available."],
+  "blockers": [],
+  "reasons": [],
+  "remediation": []
+}
+```
+
+## v0.1 backward compatibility
+
+Existing v0.1 documents are auto-detected and resolved using the legacy resolver.
+The v0.1 output format (nested `matched.tools`, `matched.capabilities`, `matched.contracts`)
+is preserved for backward compatibility. An upgrade notice is printed during validation.
 
 ## Secret detection
 
-ARCP's `validate` command and `check_secrets()` function scan compatibility
-document field names for secret-like patterns (``api_key``, ``secret_key``,
-``access_token``, ``password``, ``authorization``, etc.). Legitimate ARCP
-vocabulary terms such as ``secret_policy`` and ``secret_ref_only`` are
-explicitly allowed.
+ARCP's `validate` command and `check_secrets()` function scan document field names
+for secret-like patterns (`api_key`, `secret`, `token`, `password`, `authorization`, etc.).
+Legitimate ARCP vocabulary terms (`secret_policy`, `secret_ref_only`) are allowed.
 
-## Example commands
+## Contract families
 
-```bash
-# Validate all example documents
-uv run arcp validate --input examples/harness_1_3_2.compat.json
-uv run arcp validate --input examples/workbench_beta_0_1.compat.json
-uv run arcp validate --input examples/live_llm_reference_agent_0_1.compat.json
+Agent manifest, run request, run result, interactive run control, run events,
+artifacts, human review, checkpoint/resume, cancellation, input/output schema.
 
-# Resolve compatibility for the reference agent
-uv run arcp resolve \
-  --harness examples/harness_1_3_2.compat.json \
-  --beta examples/workbench_beta_0_1.compat.json \
-  --agent examples/live_llm_reference_agent_0_1.compat.json \
-  --format json
+## Capability vocabulary
+
+Namespaced canonical form: `llm.completion`, `web.fetch`, `web.search`, `web.crawl`,
+`document.read`, `file.write`, `email.send`. Legacy `UPPER_CASE` identifiers
+(`LLM_COMPLETION`, `WEB_FETCH`) are automatically normalized.
+
+## Worked example
+
+See the environment fixtures for a complete worked example resolving:
+- Harness v1.3.9
+- Beta v0.2.0
+- Information Collector Agent v0.3.0
+- Web Basic Tool Pack
+- Hosted OpenAI-Compatible provider
+
 ```
-
-## Non-goals
-
-- ARCP server
-- Docker service
-- Harness integration
-- Workbench Beta UI
-- Agent runtime
-- LLM compatibility judge
-- Marketplace / billing / entitlements
-- Remote code execution
-- Network calls
+uv run arcp resolve --environment fixtures/env_future_interactive_stack.json --format text
+```
 
 ## License
 

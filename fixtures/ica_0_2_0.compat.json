@@ -1,0 +1,31 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "agent",
+  "component_id": "information_collector_agent",
+  "component_version": "0.2.0",
+  "protocol_version": "0.2",
+  "name": "Information Collector Agent v0.2.0",
+  "description": "Current non-interactive ICA — collects information from seeded sources and governed web fetch.",
+  "requires": {
+    "harness": ">=1.3.7,<1.4.0"
+  },
+  "contracts": {
+    "agent_manifest": ">=1.0,<2.0"
+  },
+  "capabilities": {
+    "required": ["web.fetch"],
+    "optional": []
+  },
+  "tools": ["harness.web.fetch"],
+  "events": {
+    "supported_types": []
+  },
+  "human_review": {
+    "schema_version": "1.0",
+    "supported_actions": []
+  },
+  "checkpoint_resume": {
+    "resume_supported": false
+  },
+  "incompatibilities": []
+}

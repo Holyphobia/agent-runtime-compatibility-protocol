@@ -1,0 +1,16 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "llm_provider_profile",
+  "component_id": "web-only-provider",
+  "component_version": "0.1.0",
+  "protocol_version": "0.2",
+  "name": "Web-Only Provider",
+  "description": "Minimal provider with only web capabilities — no LLM completion.",
+  "provider": {
+    "capabilities": ["web.fetch"],
+    "supports_structured_output": false,
+    "supports_tool_calling": false,
+    "context_window": 0
+  },
+  "incompatibilities": []
+}

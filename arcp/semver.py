@@ -18,7 +18,12 @@ def parse_version(v: str) -> VersionTuple:
     >>> parse_version("0.1")
     (0, 1)
     """
-    return tuple(int(p) for p in v.split("."))
+    # Strip pre-release suffix (e.g. "1.0.0-alpha" → "1.0.0")
+    v = v.split("-")[0].split("+")[0]
+    try:
+        return tuple(int(p) for p in v.split("."))
+    except (ValueError, TypeError):
+        return ()
 
 
 def _pad(t: VersionTuple, length: int) -> VersionTuple:
@@ -75,6 +80,8 @@ def match_range(range_str: str, version_str: str) -> bool:
         return False
 
     ver = parse_version(version_str)
+    if not ver:
+        return False
 
     for op, target in constraints:
         a, b = _normalize(ver, target)

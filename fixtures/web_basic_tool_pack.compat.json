@@ -1,0 +1,15 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "tool_pack",
+  "component_id": "web-basic-tool-pack",
+  "component_version": "0.1.0",
+  "protocol_version": "0.2",
+  "name": "Web Basic Tool Pack",
+  "description": "Basic web tools providing fetch and search capabilities.",
+  "contracts": {},
+  "capabilities": {
+    "provides": ["web.fetch", "web.search"]
+  },
+  "tools": ["web.fetch", "web.search"],
+  "incompatibilities": []
+}

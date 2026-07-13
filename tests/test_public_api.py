@@ -23,7 +23,7 @@ class TestPublicApiImports:
     def test_schema_version_constant(self):
         import arcp
 
-        assert arcp.ARCP_SCHEMA_VERSION == "0.1"
+        assert arcp.ARCP_SCHEMA_VERSION == "0.2"
 
     def test_load_json_file(self):
         import arcp
