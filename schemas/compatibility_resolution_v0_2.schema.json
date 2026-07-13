@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ARCP Compatibility Resolution v0.2",
+  "description": "Schema for ARCP v0.2 multi-component compatibility resolution output",
+  "type": "object",
+  "required": [
+    "arcp_schema_version",
+    "decision",
+    "compatible",
+    "matched_components",
+    "matched_contracts",
+    "matched_capabilities",
+    "warnings",
+    "reasons",
+    "remediation"
+  ],
+  "properties": {
+    "arcp_schema_version": {
+      "type": "string",
+      "const": "0.2"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["allowed", "allowed_with_warnings", "denied", "indeterminate"]
+    },
+    "compatible": { "type": "boolean" },
+    "resolved_versions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "matched_components": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "matched_contracts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "matched_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_required_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_optional_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "incompatible_contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "contract": { "type": "string" },
+          "expected": { "type": "string" },
+          "actual": { "type": "string" },
+          "provider": { "type": "string" }
+        }
+      }
+    },
+    "unknown_capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "remediation": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

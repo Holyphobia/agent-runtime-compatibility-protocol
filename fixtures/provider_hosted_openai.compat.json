@@ -1,0 +1,18 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "llm_provider_profile",
+  "component_id": "hosted-openai-compatible",
+  "component_version": "1.0.0",
+  "protocol_version": "0.2",
+  "name": "Hosted OpenAI-Compatible Provider",
+  "description": "Full-featured hosted provider with structured output and tool calling.",
+  "provider": {
+    "capabilities": ["llm.completion"],
+    "supports_structured_output": true,
+    "supports_tool_calling": true,
+    "supports_streaming": true,
+    "context_window": 128000,
+    "quality_tier": "high"
+  },
+  "incompatibilities": []
+}

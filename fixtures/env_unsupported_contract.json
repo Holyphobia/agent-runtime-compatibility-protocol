@@ -1,0 +1,63 @@
+{
+  "harness": {
+    "arcp_schema_version": "0.2",
+    "component_type": "harness",
+    "component_id": "agent-harness",
+    "component_version": "1.3.9",
+    "protocol_version": "0.2",
+    "name": "Agent Harness",
+    "contracts": {
+      "agent_manifest": "1.0",
+      "run_request": "1.0"
+    },
+    "capabilities": {
+      "provides": ["llm.completion"]
+    },
+    "tools": ["harness.llm.complete"],
+    "events": {
+      "supported_types": ["run.requested"]
+    },
+    "constraints": {
+      "human_review_supported": true
+    }
+  },
+  "beta": {
+    "arcp_schema_version": "0.2",
+    "component_type": "beta",
+    "component_id": "workbench_beta",
+    "component_version": "0.1.3",
+    "protocol_version": "0.2",
+    "name": "Workbench Beta",
+    "contracts": {
+      "agent_manifest": "1.0"
+    },
+    "capabilities": {
+      "provides": ["llm.completion"]
+    },
+    "events": {
+      "supported_types": ["run.requested"]
+    }
+  },
+  "agent": {
+    "arcp_schema_version": "0.2",
+    "component_type": "agent",
+    "component_id": "interactive-agent",
+    "component_version": "1.0.0",
+    "protocol_version": "0.2",
+    "name": "Interactive Agent",
+    "requires": {
+      "harness": ">=1.3.9,<1.4.0"
+    },
+    "contracts": {
+      "interactive_run_control": ">=2.0,<3.0"
+    },
+    "capabilities": {
+      "required": ["llm.completion"],
+      "optional": []
+    },
+    "tools": ["harness.llm.complete"],
+    "events": {
+      "supported_types": ["run.started"]
+    }
+  }
+}

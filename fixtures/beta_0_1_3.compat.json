@@ -1,0 +1,49 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "beta",
+  "component_id": "workbench_beta",
+  "component_version": "0.1.3",
+  "protocol_version": "0.2",
+  "name": "Workbench Beta v0.1.3",
+  "description": "Beta 0.1 — local-only, single-agent browser UI. Limited event/artifact/review support.",
+  "supports": {
+    "harness": ">=1.3.8,<1.4.0"
+  },
+  "contracts": {
+    "agent_manifest": "1.0",
+    "run_request": "1.0",
+    "run_events": "1.0"
+  },
+  "capabilities": {
+    "provides": [
+      "llm.completion"
+    ]
+  },
+  "tools": ["harness.llm.complete"],
+  "events": {
+    "schema_version": "1.0",
+    "supported_types": [
+      "run.requested",
+      "agent.manifest_loaded",
+      "run.started",
+      "llm.completion_requested",
+      "llm.completion_allowed",
+      "llm.completion_completed",
+      "run.completed",
+      "run.failed",
+      "run.blocked"
+    ]
+  },
+  "artifacts": {
+    "schema_version": "1.0",
+    "supported_media_types": ["text/markdown", "application/json"],
+    "renderer_hints": ["markdown", "json"]
+  },
+  "human_review": {
+    "schema_version": "1.0",
+    "supported_actions": ["approve"]
+  },
+  "constraints": {
+    "provider_selection": false
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "harness",
+  "component_id": "agent-harness-legacy",
+  "component_version": "1.2.0",
+  "protocol_version": "0.2",
+  "name": "Legacy Harness (No Checkpoint/Resume)",
+  "description": "Old harness version that lacks checkpoint/resume capability.",
+  "contracts": {
+    "agent_manifest": "1.0",
+    "run_request": "1.0"
+  },
+  "capabilities": {
+    "provides": ["llm.completion"]
+  },
+  "tools": ["harness.llm.complete"],
+  "events": {
+    "supported_types": ["run.requested", "run.started", "run.completed"]
+  }
+}

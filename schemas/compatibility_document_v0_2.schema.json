@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ARCP Compatibility Document v0.2",
+  "description": "Schema for ARCP v0.2 compatibility documents (harness, beta, agent, tool, tool_pack, llm_provider_profile)",
+  "type": "object",
+  "required": [
+    "arcp_schema_version",
+    "component_type",
+    "component_id",
+    "component_version",
+    "protocol_version"
+  ],
+  "properties": {
+    "arcp_schema_version": {
+      "type": "string",
+      "const": "0.2"
+    },
+    "component_type": {
+      "type": "string",
+      "enum": ["harness", "beta", "agent", "tool", "tool_pack", "llm_provider_profile"]
+    },
+    "component_id": { "type": "string" },
+    "component_version": { "type": "string" },
+    "protocol_version": { "type": "string", "const": "0.2" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Contract family -> version range this component provides or requires"
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "provides": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Capabilities this component provides"
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Capabilities this component requires (mandatory)"
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Capabilities this component can use if available"
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "event_types": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Version requirements for other components (e.g. harness, beta)"
+    },
+    "constraints": { "type": "object" },
+    "supports": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "llm_requirements": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "minimum_context_window": { "type": "integer" },
+        "structured_output_required": { "type": "boolean" },
+        "tool_calling_required": { "type": "boolean" },
+        "streaming_optional": { "type": "boolean" },
+        "quality_tier": { "type": "string" }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "supports_structured_output": { "type": "boolean" },
+        "supports_tool_calling": { "type": "boolean" },
+        "supports_streaming": { "type": "boolean" },
+        "context_window": { "type": "integer" },
+        "quality_tier": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "supported_media_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "renderer_hints": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "artifact_discovery": { "type": "string" },
+        "artifact_available_before_completion": { "type": "boolean" }
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "supported_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "review_discovery": { "type": "string" },
+        "review_decision_submission": { "type": "string" }
+      }
+    },
+    "checkpoint_resume": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "resume_supported": { "type": "boolean" },
+        "checkpoint_single_use": { "type": "boolean" }
+      }
+    },
+    "cancellation": {
+      "type": "object",
+      "properties": {
+        "cooperative_cancellation": { "type": "boolean" },
+        "cancellable_run_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "string" },
+        "supported_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "incremental_query": { "type": "string" },
+        "ordering": { "type": "string" }
+      }
+    },
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "reference": { "type": "string" }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "reference": { "type": "string" }
+      }
+    },
+    "incompatibilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Explicit incompatibilities with other components"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Extensible metadata for future use"
+    }
+  },
+  "additionalProperties": false
+}

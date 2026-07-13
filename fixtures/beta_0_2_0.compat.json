@@ -1,0 +1,76 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "beta",
+  "component_id": "workbench_beta",
+  "component_version": "0.2.0",
+  "protocol_version": "0.2",
+  "name": "Workbench Beta v0.2.0",
+  "description": "Beta 0.2 — interactive events, artifacts, reviews and schema-driven forms.",
+  "supports": {
+    "harness": ">=1.3.8,<1.4.0"
+  },
+  "contracts": {
+    "agent_manifest": "1.0",
+    "run_request": "1.0",
+    "interactive_run_control": "1.0",
+    "run_events": "1.0",
+    "artifacts": "1.0",
+    "human_review": "1.0",
+    "checkpoint_resume": "1.0",
+    "cancellation": "1.0"
+  },
+  "capabilities": {
+    "provides": [
+      "llm.completion",
+      "interactive_run_control",
+      "human_review"
+    ]
+  },
+  "tools": ["harness.llm.complete"],
+  "events": {
+    "schema_version": "1.0",
+    "supported_types": [
+      "run.requested",
+      "agent.manifest_loaded",
+      "compatibility.checked",
+      "run.started",
+      "llm.completion_requested",
+      "llm.completion_allowed",
+      "llm.completion_completed",
+      "run.completed",
+      "run.failed",
+      "run.blocked",
+      "review.approved",
+      "review.changes_requested",
+      "review.rejected",
+      "artifact.registered",
+      "checkpoint.created",
+      "run.resumed",
+      "run.cancelled"
+    ],
+    "incremental_query": "event_polling",
+    "ordering": "ordered"
+  },
+  "artifacts": {
+    "schema_version": "1.0",
+    "supported_media_types": ["text/markdown", "application/json", "text/html"],
+    "renderer_hints": ["markdown", "source_cards", "evidence_table", "json", "file_download"],
+    "artifact_discovery": "event",
+    "artifact_available_before_completion": true
+  },
+  "human_review": {
+    "schema_version": "1.0",
+    "supported_actions": ["approve", "reject", "request_changes"],
+    "review_discovery": "event",
+    "review_decision_submission": "api"
+  },
+  "checkpoint_resume": {
+    "schema_version": "1.0",
+    "resume_supported": true,
+    "checkpoint_single_use": true
+  },
+  "cancellation": {
+    "cooperative_cancellation": true,
+    "cancellable_run_states": ["running", "pending_review"]
+  }
+}

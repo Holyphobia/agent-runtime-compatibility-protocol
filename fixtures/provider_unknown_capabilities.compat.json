@@ -1,0 +1,16 @@
+{
+  "arcp_schema_version": "0.2",
+  "component_type": "llm_provider_profile",
+  "component_id": "unknown-capability-provider",
+  "component_version": "0.1.0",
+  "protocol_version": "0.2",
+  "name": "Provider With Unknown Capabilities",
+  "description": "Provider whose capability status is not fully declared.",
+  "provider": {
+    "capabilities": ["llm.completion"],
+    "supports_structured_output": null,
+    "supports_tool_calling": null,
+    "context_window": 8000
+  },
+  "incompatibilities": []
+}

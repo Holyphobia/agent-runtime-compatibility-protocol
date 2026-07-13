@@ -1,4 +1,4 @@
-"""ARCP CLI — validate, resolve, explain."""
+"""ARCP CLI — validate, resolve, explain (v0.2)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import json
 import sys
 from typing import Any
 
-from arcp.resolver import resolve
+from arcp.resolver import resolve, resolve_environment
 from arcp.validation import (
     check_secrets,
+    upgrade_v0_1_to_v0_2,
     validate_document,
     validate_resolution,
 )
@@ -20,14 +21,24 @@ def _load_json(path: str) -> dict[str, Any]:
         return json.load(f)
 
 
+def _load_optional_json(path: str) -> dict[str, Any] | None:
+    if not path:
+        return None
+    return _load_json(path)
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     doc = _load_json(args.input)
     errors = validate_document(doc)
 
-    if errors:
-        for e in errors:
-            print(f"Validation error: {e}", file=sys.stderr)
-        return 1
+    for e in errors:
+        print(f"Validation error: {e}", file=sys.stderr)
+
+    if not errors:
+        ct = doc.get("component_type") or doc.get("kind", "unknown")
+        ver = doc.get("component_version") or doc.get("version", "unknown")
+        cid = doc.get("component_id") or doc.get("id", "?")
+        print(f"Valid {ct} document {cid} v{ver}")
 
     secrets = check_secrets(doc)
     if secrets:
@@ -37,27 +48,31 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
 
-    kind = doc.get("kind", "unknown")
-    version = doc.get("version", "unknown")
-    print(f"Valid {kind} document {doc.get('id', '?')} v{version}")
-    if secrets:
-        print(f"  Secret-like fields detected: {len(secrets)}", file=sys.stderr)
-    return 0
+    # Upgrade notice for v0.1 docs
+    if doc.get("arcp_schema_version") == "0.1":
+        print("Note: Document uses v0.1 format. Consider upgrading to v0.2.", file=sys.stderr)
+
+    return 1 if errors else 0
 
 
 def cmd_resolve(args: argparse.Namespace) -> int:
-    harness = _load_json(args.harness)
-    beta = _load_json(args.beta)
-    agent = _load_json(args.agent)
+    if args.environment:
+        env = _load_json(args.environment)
+        result = resolve_environment(env)
+    else:
+        harness = _load_json(args.harness)
+        beta = _load_json(args.beta) if args.beta else {}
+        agent = _load_json(args.agent)
 
-    for name, doc in [("harness", harness), ("beta", beta), ("agent", agent)]:
-        errs = validate_document(doc)
-        if errs:
-            for e in errs:
-                print(f"{name}: {e}", file=sys.stderr)
-            return 1
+        for name, doc in [("harness", harness), ("beta", beta), ("agent", agent)]:
+            if doc:
+                errs = validate_document(doc)
+                if errs:
+                    for e in errs:
+                        print(f"{name}: {e}", file=sys.stderr)
+                    return 1
 
-    result = resolve(harness, beta, agent)
+        result = resolve(harness, beta, agent)
 
     if args.schema_validate:
         rerrs = validate_resolution(result)
@@ -71,7 +86,11 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     elif args.format == "text":
         _print_text(result)
 
-    return 0 if result.get("compatible") else 1
+    # Exit code: 0 = allowed/warnings, 1 = blocked/denied/indeterminate
+    decision = result.get("decision", "")
+    if decision in ("denied", "indeterminate", "blocked"):
+        return 1
+    return 0
 
 
 def cmd_explain(args: argparse.Namespace) -> int:
@@ -88,40 +107,77 @@ def cmd_explain(args: argparse.Namespace) -> int:
 
 
 def _print_text(resolution: dict[str, Any]) -> None:
-    compatible = resolution.get("compatible", False)
     decision = resolution.get("decision", "unknown")
+    compatible = resolution.get("compatible", False)
     versions = resolution.get("resolved_versions", {})
-    matched = resolution.get("matched", {})
+    matched_components = resolution.get("matched_components", [])
+    matched_contracts = resolution.get("matched_contracts", {})
+    matched_caps = resolution.get("matched_capabilities", [])
+    missing_req_caps = resolution.get("missing_required_capabilities", [])
+    missing_opt_caps = resolution.get("missing_optional_capabilities", [])
+    unknown_caps = resolution.get("unknown_capabilities", [])
     blockers = resolution.get("blockers", [])
-    warnings = resolution.get("warnings", [])
-    suggestions = resolution.get("suggested_actions", [])
+    warnings_list = resolution.get("warnings", [])
+    reasons = resolution.get("reasons", [])
+    remediation = resolution.get("remediation", [])
 
     print("ARCP Compatibility Resolution")
     print("=" * 40)
     print(f"  Compatible:  {compatible}")
     print(f"  Decision:    {decision}")
     print()
-    print("Resolved Versions:")
-    for k, v in versions.items():
-        print(f"  {k}: {v}")
+
+    if versions:
+        print("Resolved Versions:")
+        for k, v in versions.items():
+            print(f"  {k}: {v}")
+        print()
+
+    print("Components:")
+    for c in matched_components:
+        print(f"  + {c}")
     print()
 
-    print("Matched:")
-    print(f"  Tools:       {', '.join(matched.get('tools', [])) or '(none)'}")
-    print(f"  Capabilities: {', '.join(matched.get('capabilities', [])) or '(none)'}")
-    contracts = matched.get("contracts", {})
-    if contracts:
-        print("  Contracts:")
-        for cname, cver in contracts.items():
-            print(f"    {cname}: {cver}")
-    else:
-        print("  Contracts:   (none)")
-    print()
+    if matched_caps:
+        print(f"Matched Capabilities ({len(matched_caps)}):")
+        for c in matched_caps:
+            print(f"  + {c}")
+        print()
 
-    if warnings:
-        print(f"Warnings ({len(warnings)}):")
-        for w in warnings:
-            print(f"  - [{w.get('type', '?')}] {w.get('detail', '')}")
+    if matched_contracts:
+        print("Matched Contracts:")
+        for cname, cver in matched_contracts.items():
+            print(f"  {cname}: {cver}")
+        print()
+
+    if missing_req_caps:
+        print(f"Missing Required Capabilities ({len(missing_req_caps)}):")
+        for c in missing_req_caps:
+            print(f"  - {c}")
+        print()
+
+    if missing_opt_caps:
+        print(f"Missing Optional Capabilities ({len(missing_opt_caps)}):")
+        for c in missing_opt_caps:
+            print(f"  ~ {c}")
+        print()
+
+    if unknown_caps:
+        print(f"Unknown Capabilities ({len(unknown_caps)}):")
+        for c in unknown_caps:
+            print(f"  ? {c}")
+        print()
+
+    if warnings_list:
+        print(f"Warnings ({len(warnings_list)}):")
+        for w in warnings_list:
+            print(f"  - {w}")
+        print()
+
+    if reasons:
+        print(f"Reasons ({len(reasons)}):")
+        for r in reasons:
+            print(f"  - {r}")
         print()
 
     if blockers:
@@ -130,35 +186,27 @@ def _print_text(resolution: dict[str, Any]) -> None:
             _print_blocker(b)
         print()
 
-    if suggestions:
-        print("Suggested actions:")
-        for s in suggestions:
-            print(f"  - {s}")
+    if remediation:
+        print("Remediation:")
+        for r in remediation:
+            print(f"  - {r}")
         print()
 
 
 def _print_blocker(b: dict[str, Any]) -> None:
     btype = b.get("type", "?")
-    detail_parts: list[str] = []
-    if "tool" in b:
-        detail_parts.append(f"tool={b['tool']}")
-    if "capability" in b:
-        detail_parts.append(f"capability={b['capability']}")
-    if "contract" in b:
-        detail_parts.append(f"contract={b['contract']}")
-    if "event_type" in b:
-        detail_parts.append(f"event_type={b['event_type']}")
-    if "expected" in b:
-        detail_parts.append(f"expected={b['expected']}")
-    if "actual" in b:
-        detail_parts.append(f"actual={b['actual']}")
-    detail = ", ".join(detail_parts)
-    print(f"  - {btype}" + (f" ({detail})" if detail else ""))
+    parts: list[str] = []
+    for key in ("tool", "capability", "contract", "event_type", "field", "detail"):
+        val = b.get(key)
+        if val:
+            parts.append(f"{key}={val}")
+    detail = ", ".join(parts)
+    print(f"  [{btype}] {detail}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="ARCP — Agent Runtime Compatibility Protocol CLI"
+        description="ARCP v0.2 — Agent Runtime Compatibility Protocol CLI"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -168,19 +216,20 @@ def main() -> None:
     p_val.set_defaults(func=cmd_validate)
 
     # resolve
-    p_res = sub.add_parser("resolve", help="Resolve compatibility between documents")
-    p_res.add_argument("--harness", required=True, help="Harness compat JSON")
-    p_res.add_argument("--beta", required=True, help="Beta compat JSON")
-    p_res.add_argument("--agent", required=True, help="Agent compat JSON")
+    p_res = sub.add_parser("resolve", help="Resolve compatibility between components")
+    p_res.add_argument("--harness", help="Harness compat JSON")
+    p_res.add_argument("--beta", help="Beta compat JSON")
+    p_res.add_argument("--agent", help="Agent compat JSON")
     p_res.add_argument(
-        "--format",
-        choices=["json", "text"],
-        default="text",
+        "--environment", "-e",
+        help="Environment JSON file with multi-component definitions",
+    )
+    p_res.add_argument(
+        "--format", choices=["json", "text"], default="text",
         help="Output format (default: text)",
     )
     p_res.add_argument(
-        "--schema-validate",
-        action="store_true",
+        "--schema-validate", action="store_true",
         help="Also validate the resolution against the resolution schema",
     )
     p_res.set_defaults(func=cmd_resolve)
